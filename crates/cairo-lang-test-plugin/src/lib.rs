@@ -105,14 +105,15 @@ pub fn compile_test_prepared_db<'db>(
 
     ensure_diagnostics(db, &mut diagnostics_reporter)?;
 
-    let contracts = tests_compilation_config.contract_declarations.unwrap_or_else(|| {
+    let contracts = if tests_compilation_config.starknet {
+        tests_compilation_config.contract_declarations.unwrap_or_else(|| {
         find_contracts(
             db,
             tests_compilation_config.contract_crate_ids.unwrap_or_else(|| db.crates()),
         )
-    });
-    let all_entry_points = if tests_compilation_config.starknet {
-        contracts
+    }) } else { vec![] };
+
+    let all_entry_points: Vec<ConcreteFunctionWithBodyId> = contracts
             .iter()
             .flat_map(|contract| {
                 chain!(
@@ -123,10 +124,8 @@ pub fn compile_test_prepared_db<'db>(
                 )
             })
             .map(|func| ConcreteFunctionWithBodyId::from_semantic(db, func.value))
-            .collect()
-    } else {
-        vec![]
-    };
+            .collect();
+
 
     let test_crate_ids = CrateInput::into_crate_ids(db, test_crate_ids);
     let executable_functions = find_executable_function_ids(
